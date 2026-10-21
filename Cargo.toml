@@ -26,7 +26,7 @@ tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["trace"] }
 tracing = { version = "0.1", features = ["attributes"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
-ulid = "1"
+ulid = "3"
 
 [workspace.dependencies.sqlx]
 version = "0.8"
