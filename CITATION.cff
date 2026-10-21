@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you reference this software, please cite it using the metadata below."
+title: "Zeno: an open-source ticketing platform with tested correctness guarantees"
+abstract: >-
+  Zeno is an open-source ticketing platform. It takes an event from an organizer's
+  draft through a public catalog, a 15-minute inventory hold, a confirmation that
+  issues one independently scannable ticket per seat, and an atomic admission at
+  the door. Its distinguishing property is that correctness under a flash sale is
+  asserted by tests rather than assumed: inventory cannot be oversold, a retried
+  confirmation cannot create a second order, and two scanners racing on one
+  credential produce one admission. It ships the operational surface as well,
+  including Prometheus metrics, provisioned dashboards, alert rules, and a
+  reproducible secret scan.
+type: software
+authors:
+  - name: Waruna Udara
+repository-code: "https://github.com/WarunaUdara/zeno-platform"
+url: "https://github.com/WarunaUdara/zeno-platform"
+license: AGPL-3.0-or-later
+keywords:
+  - ticketing
+  - reservations
+  - event check-in
+  - rust
+  - axum
+  - postgresql
+  - reliability engineering
+  - observability
+  - site reliability engineering
+  - infrastructure as code
+  - google cloud

@@ -1,0 +1,60 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(18rem, 1fr) minmax(24rem, 34rem) minmax(18rem, 1fr);
+  align-items: center;
+  padding: 2rem clamp(1.25rem, 5vw, 5rem);
+  background:
+    radial-gradient(ellipse at 50% 42%, rgb(228 242 34 / 5%), transparent 42%),
+    var(--background);
+}
+
+.brand {
+  position: absolute;
+  top: 2rem;
+  left: clamp(1.25rem, 5vw, 5rem);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--foreground);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+
+.mark {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+
+.period { color: var(--primary); }
+
+.content {
+  grid-column: 2;
+  width: 100%;
+}
+
+.footnote {
+  margin: 1.25rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+@media (max-width: 48rem) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    padding: 5.5rem 1rem 2rem;
+  }
+
+  .content { grid-column: 1; }
+}

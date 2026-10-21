@@ -1,0 +1,16 @@
+services:
+  floci-gcp:
+    image: floci/floci-gcp:latest
+    container_name: zeno-floci-gcp
+    ports:
+      - "127.0.0.1:4588:4588"
+    environment:
+      FLOCI_PROJECT: ${FLOCI_PROJECT:-floci-local}
+      FLOCI_REGION: ${FLOCI_REGION:-asia-southeast1}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:4588/_floci-gcp/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 2s
+    restart: unless-stopped

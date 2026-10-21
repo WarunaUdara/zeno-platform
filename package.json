@@ -1,0 +1,43 @@
+{
+  "name": "zeno",
+  "private": true,
+  "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WarunaUdara/zeno-platform.git"
+  },
+  "packageManager": "bun@1.4.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.9"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "api:lint": "redocly lint api/openapi/v1.yaml",
+    "api:client:generate": "openapi-typescript api/openapi/v1.yaml -o packages/api-client/src/generated.ts",
+    "api:client:check": "bun run api:client:generate && git diff --exit-code -- packages/api-client/src/generated.ts",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose stop postgres",
+    "stack:up": "docker compose up -d --build",
+    "stack:down": "docker compose down --remove-orphans",
+    "api:dev": "cargo run -p zeno-api",
+    "api:migrate": "cargo run -p zeno-api -- migrate",
+    "api:seed-demo": "cargo run -p zeno-api -- seed-demo",
+    "api:test": "cargo test --workspace",
+    "api:check": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings"
+  },
+  "devDependencies": {
+    "@neon/config": "1.8.3",
+    "@neon/env": "1.5.0",
+    "@redocly/cli": "2.57.0",
+    "openapi-typescript": "7.13.0",
+    "turbo": "2.11.7"
+  }
+}

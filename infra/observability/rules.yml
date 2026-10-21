@@ -1,0 +1,149 @@
+groups:
+  - name: zeno-api
+    interval: 5s
+    rules:
+      - record: zeno:http_requests:rate5m
+        expr: sum by (job) (rate(zeno_http_requests_total[5m]))
+      - record: zeno:http_server_errors:ratio5m
+        expr: |
+          sum by (job) (rate(zeno_http_requests_total{status_code=~"5.."}[5m]))
+          /
+          clamp_min(sum by (job) (rate(zeno_http_requests_total[5m])), 0.000001)
+      - record: zeno:http_request_duration_seconds:p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (job, route, le) (rate(zeno_http_request_duration_seconds_bucket[5m]))
+          )
+
+      - alert: ZenoApiTargetDown
+        expr: up{job="zeno-api"} == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: Zeno API scrape target is down
+          description: Prometheus has failed to scrape the API for at least 15 seconds.
+
+      - alert: ZenoPostgresExporterDown
+        expr: up{job="postgres-exporter"} == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: Zeno PostgreSQL exporter is down
+          description: Prometheus cannot scrape PostgreSQL telemetry from postgres-exporter.
+
+      - alert: ZenoPostgresUnavailable
+        expr: pg_up == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: Zeno PostgreSQL is unavailable to the exporter
+          description: The exporter is reachable but cannot collect metrics from PostgreSQL.
+
+      - alert: ZenoPostgresConnectionsHigh
+        expr: |
+          sum(pg_stat_activity_count{state!="disabled"})
+          / scalar(pg_settings_max_connections) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Zeno PostgreSQL connection usage is high
+          description: PostgreSQL is using more than 80% of its configured connection limit.
+
+      - alert: ZenoPostgresDeadlocks
+        expr: sum(rate(pg_stat_database_deadlocks{datname="zeno"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Zeno PostgreSQL detected deadlocks
+          description: PostgreSQL has recorded new deadlocks in the Zeno database during the last five minutes.
+
+      - alert: ZenoObservabilityTargetDown
+        expr: up{job=~"prometheus|grafana"} == 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Zeno observability target is down
+          description: Prometheus cannot scrape its own or Grafana's metrics endpoint.
+
+      - alert: ZenoApiHigh5xxRatio
+        expr: |
+          (zeno:http_server_errors:ratio5m > 0.05)
+          and on (job) (zeno:http_requests:rate5m > 1)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Zeno API is returning elevated server errors
+          description: More than 5% of responses are 5xx while the API serves over one request per second.
+
+      - alert: ZenoApiHighP95Latency
+        expr: |
+          (zeno:http_request_duration_seconds:p95_5m > 1)
+          and on (job) (zeno:http_requests:rate5m > 1)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Zeno API p95 latency is elevated
+          description: API p95 latency is above one second under sustained traffic.
+
+      - alert: ZenoExpiryWorkerMissing
+        expr: absent(zeno_worker_last_batch_timestamp_seconds{worker_name="reservation-expiry"})
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: Zeno reservation expiry worker has no heartbeat
+          description: No reservation expiry worker instance has reported a completed batch.
+
+      - alert: ZenoExpiryWorkerBatchFailing
+        expr: zeno_worker_last_batch_succeeded{worker_name="reservation-expiry"} == 0
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: Zeno reservation expiry worker batch is failing
+          description: The reservation expiry worker's latest recorded batch failed.
+
+      - alert: ZenoExpiryWorkerHeartbeatStale
+        expr: time() - zeno_worker_last_batch_timestamp_seconds{worker_name="reservation-expiry"} > 15
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: Zeno reservation expiry worker heartbeat is stale
+          description: A reservation expiry worker instance has not completed a batch for over 15 seconds.
+
+      - alert: ZenoExpiryWorkerBatchSlow
+        expr: zeno_worker_last_batch_duration_seconds{worker_name="reservation-expiry"} > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Zeno reservation expiry worker batch is slow
+          description: A reservation expiry batch has taken more than a second for two minutes, so expired holds are being released later than intended.
+
+      - alert: ZenoOutboxDueJobsBacklog
+        expr: zeno_outbox_due_jobs > 100
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Zeno reservation expiry queue is backlogged
+          description: More than 100 scheduled jobs are due and waiting to be processed.
+
+      - alert: ZenoOutboxOldestDueJob
+        expr: zeno_outbox_oldest_due_job_age_seconds > 30
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: Zeno outbox work is overdue
+          description: The oldest due outbox job has been waiting for over 30 seconds.

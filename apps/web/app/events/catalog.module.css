@@ -1,0 +1,50 @@
+.page { min-height: 100vh; padding: 0 6vw 6rem; background: var(--background); }
+.header { height: 5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+.brand { color: var(--foreground); font-size: 1.1rem; font-weight: 560; letter-spacing: -.035em; text-decoration: none; }
+.brand span { color: var(--foreground); }
+.backLink { color: var(--muted-foreground); font-size: .9375rem; text-decoration: none; }
+.backLink:hover { color: var(--foreground); }
+.backLink span { margin-left: .35rem; }
+.intro { max-width: 58rem; margin: 6.5rem auto 5rem; }
+.eyebrow { margin: 0 0 1.2rem; color: var(--muted-foreground); font-size: .9375rem; font-weight: 520; letter-spacing: .06em; }
+.intro h1 { margin: 0; font-size: clamp(3rem, 6vw, 5rem); font-weight: 510; letter-spacing: -.035em; line-height: 1.02; }
+.description { max-width: 33rem; margin: 1.5rem 0 0; color: var(--muted-foreground); font-size: 1.125rem; line-height: 1.7; }
+.listing { max-width: 58rem; margin: 0 auto; }
+.listHeading { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1rem; padding-bottom: .9rem; border-bottom: 1px solid var(--border); }
+.listHeading h2 { margin: 0; font-size: 1.125rem; font-weight: 560; letter-spacing: -.02em; }
+.listHeading > span { color: var(--muted-foreground); font-size: .9375rem; }
+.eventList { display: grid; gap: .75rem; }
+.nextPage { display: flex; width: fit-content; margin: 1.5rem auto 0; padding: .7rem 1rem; border: 1px solid var(--border); border-radius: .4rem; color: var(--foreground); font-size: .875rem; text-decoration: none; }
+.nextPage:hover { border-color: #464a37; background: #121411; }
+.nextPage span { margin-left: .55rem; color: var(--primary); }
+.eventCard { position: relative; display: grid; grid-template-columns: 4.25rem minmax(0, 1fr) auto; gap: 1.25rem; align-items: start; padding: 1.25rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--card); color: inherit; text-decoration: none; transition: background 140ms ease, border-color 140ms ease; }
+.eventCard:hover { border-color: #383b3f; background: #121314; }
+.eventCard:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.dateBlock { display: grid; justify-items: center; padding: .55rem .25rem; border-right: 1px solid var(--border); color: var(--muted-foreground); }
+.dateBlock span { font-size: .9375rem; font-weight: 550; letter-spacing: .04em; text-transform: uppercase; }
+.dateBlock strong { margin-top: .2rem; color: var(--foreground); font-size: 1.65rem; font-weight: 580; letter-spacing: -.06em; }
+.eventCopy { min-width: 0; }
+.eventMeta { display: flex; align-items: center; gap: .75rem; color: var(--muted-foreground); font-size: .9375rem; }
+.eventMeta :global([data-slot="badge"]) { color: #b2b7a7; }
+.eventCopy h2 { margin: .7rem 0 .35rem; font-size: 1.35rem; font-weight: 550; letter-spacing: -.025em; }
+.eventCopy p { max-width: 44rem; margin: 0; color: #aeb4be; font-size: 1rem; line-height: 1.6; }
+.venue { display: block; margin-top: .8rem; color: var(--muted-foreground); font-size: .9375rem; }
+.openArrow { align-self: center; color: #70756d; font-size: 1rem; }
+.eventCard:hover .openArrow { color: var(--primary); }
+.emptyState { padding: 2.75rem 1.5rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--card); text-align: center; }
+.emptyState h3 { margin: 0; font-size: 1.125rem; font-weight: 550; }
+.emptyState p { margin: .5rem auto 0; max-width: 28rem; color: var(--muted-foreground); font-size: 1rem; line-height: 1.6; }
+.retryLink { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; margin-top: 1.25rem; border: 1px solid #383b3f; border-radius: .375rem; padding: 0 .9rem; color: var(--foreground); font-size: .9375rem; text-decoration: none; }
+.retryLink:hover { background: var(--accent); }
+.retryLink:focus-visible,
+.nextPage:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+@media (max-width: 640px) {
+  .page { padding: 0 1.25rem 4rem; }
+  .intro { margin: 4.5rem auto 3.5rem; }
+  .description { font-size: 1rem; }
+  .eventCard { grid-template-columns: 3.5rem minmax(0, 1fr); gap: .85rem; padding: 1rem; }
+  .openArrow { position: absolute; right: 1rem; top: 1rem; }
+  .eventMeta { padding-right: 1rem; flex-wrap: wrap; gap: .4rem .65rem; }
+  .eventCopy h2 { font-size: 1.15rem; }
+}
+@media (prefers-reduced-motion: reduce) { .eventCard { transition: none; } }

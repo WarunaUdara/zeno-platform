@@ -1,0 +1,142 @@
+/* Door check-in.
+   Large type and high contrast because this is read at arm's length, in bad
+   light, by someone who has not done it before and has a queue behind them. */
+.console {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 46rem;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted, #5b6472);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin: 0.15rem 0 0;
+}
+
+.counts {
+  display: flex;
+  gap: 1.25rem;
+  margin: 0;
+}
+
+.counts div {
+  display: flex;
+  flex-direction: column;
+}
+
+.counts dt {
+  color: var(--muted, #5b6472);
+  font-size: 0.8rem;
+}
+
+.counts dd {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.scanForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.scanForm label {
+  font-weight: 600;
+}
+
+.scanRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.scanRow input {
+  flex: 1;
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
+  border: 2px solid #1b2330;
+  border-radius: 0.5rem;
+  font-size: 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+}
+
+.scanRow input:focus-visible {
+  outline: 3px solid #1b6ef3;
+  outline-offset: 2px;
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 3px solid transparent;
+}
+
+.resultVerdict {
+  font-size: 2.75rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.resultDetail {
+  font-size: 1.15rem;
+}
+
+.resultMeta {
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+.resultYes {
+  background: #e7f7ed;
+  border-color: #0f7b3f;
+  color: #0b4f28;
+}
+
+.resultCare {
+  background: #fff5e0;
+  border-color: #a8690a;
+  color: #6b3f02;
+}
+
+.resultNo {
+  background: #fdeaea;
+  border-color: #a4262c;
+  color: #7a1a1f;
+}
+
+.idle {
+  margin: 0;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 2px dashed #c3c9d4;
+  color: var(--muted, #5b6472);
+}
+
+.failure {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: #fdeaea;
+  color: #7a1a1f;
+  font-weight: 600;
+}

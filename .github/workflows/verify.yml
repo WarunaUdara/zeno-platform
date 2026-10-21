@@ -1,0 +1,231 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stack:
+    name: Containerized local demo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Generate loopback-only Grafana credential
+        # compose.yaml honours GRAFANA_ADMIN_USER/GRAFANA_ADMIN_PASSWORD, so a
+        # per-run value keeps a credential out of the workflow file entirely.
+        # The container is published on 127.0.0.1 and dies with the job.
+        run: |
+          echo "GRAFANA_ADMIN_USER=admin" >> "$GITHUB_ENV"
+          echo "GRAFANA_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+      - run: docker compose up --build -d
+      - name: Verify reservation worker is healthy
+        run: |
+          worker="$(docker compose ps -q worker)"
+          test -n "$worker"
+          for attempt in $(seq 1 30); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' "$worker")"
+            if [ "$status" = healthy ]; then exit 0; fi
+            if [ "$status" = unhealthy ]; then docker compose logs worker; exit 1; fi
+            sleep 1
+          done
+          docker compose logs worker
+          echo "worker did not become healthy"
+          exit 1
+      - name: Verify event and idempotent reservation flow
+        run: |
+          node --input-type=module <<'NODE'
+          import { randomBytes } from "node:crypto";
+
+          let page;
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            try {
+              page = await fetch("http://127.0.0.1:3000/events/designing-with-ai-summit", {
+                signal: AbortSignal.timeout(1000),
+              });
+              if (page.ok) break;
+            } catch {}
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+          if (!page?.ok) throw new Error(`event page returned ${page?.status ?? "no response"}`);
+
+          const key = randomBytes(16).toString("base64url");
+          const request = () => fetch("http://127.0.0.1:3000/api/reservations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+            body: JSON.stringify({
+              // The web BFF validates this shape before proxying: it requires
+              // exactly these three keys and rejects anything else with 422.
+              // The API itself takes only `quantity`; the ids are path params.
+              event_id: "zeno_01J9WZ6Q2CX7F2YV8AX0P4TD7K",
+              ticket_type_id: "zeno_01J9WZ6Q2CX7F2YV8AX0P4TD7L",
+              quantity: 1,
+            }),
+          });
+
+          const first = await request();
+          const firstBody = await first.json();
+          const replay = await request();
+          const replayBody = await replay.json();
+          if (first.status !== 201 || replay.status !== 201 || firstBody.id !== replayBody.id) {
+            throw new Error(JSON.stringify({ first: first.status, replay: replay.status, firstBody, replayBody }));
+          }
+          console.log("event page and idempotent reservation smoke test passed");
+          NODE
+      - name: Verify Prometheus scrape and provisioned Grafana dashboard
+        run: |
+          docker compose exec -T prometheus promtool check config /etc/prometheus/prometheus.yml
+          docker compose exec -T prometheus promtool check rules /etc/prometheus/rules.yml
+          docker compose exec -T prometheus promtool test rules /etc/prometheus/tests/zeno.rules.test.yml
+
+          # Wait for every scrape target, not just the API. Only the API target
+          # used to be retried, so a slow-starting exporter failed the job
+          # intermittently and read as a broken dashboard rather than as a race.
+          missing="prometheus-not-ready"
+          for attempt in $(seq 1 60); do
+            if ! curl --fail --silent --max-time 5 http://127.0.0.1:9090/-/ready >/dev/null 2>&1; then
+              sleep 1
+              continue
+            fi
+            if ! curl --fail --silent --max-time 5 http://127.0.0.1:3002/api/health >/dev/null 2>&1; then
+              sleep 1
+              continue
+            fi
+            missing=""
+            for job in zeno-api postgres-exporter prometheus grafana; do
+              health="$(curl --silent --max-time 5 'http://127.0.0.1:9090/api/v1/targets?state=active' \
+                | jq -r --arg job "$job" '[.data.activeTargets[] | select(.labels.job == $job) | .health][0] // "missing"')"
+              if [ "$health" != up ]; then
+                missing="$missing $job($health)"
+              fi
+            done
+            if [ -z "$missing" ]; then
+              break
+            fi
+            sleep 1
+          done
+          if [ -n "$missing" ]; then
+            echo "targets never came up:$missing"
+            curl --silent 'http://127.0.0.1:9090/api/v1/targets?state=active' \
+              | jq -r '.data.activeTargets[] | "  \(.labels.job) \(.health) \(.lastError)"'
+            exit 1
+          fi
+
+          curl --fail --silent --user "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" \
+            'http://127.0.0.1:3002/api/dashboards/uid/zeno-api' \
+            | jq --exit-status '.dashboard.title == "Zeno API" and ([.dashboard.panels[].title] | contains(["Reservation expiry worker heartbeat age", "Reservation expiry worker batch health", "Due outbox jobs", "Oldest due outbox job age"]))' >/dev/null
+          curl --fail --silent --user "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" \
+            'http://127.0.0.1:3002/api/dashboards/uid/zeno-database' \
+            | jq --exit-status '.dashboard.title == "Zeno Database" and ([.dashboard.panels[].title] | contains(["PostgreSQL scrape health", "Connection limit used", "Transaction throughput", "PostgreSQL buffer cache hit ratio", "Deadlock rate"]))' >/dev/null
+          curl --fail --silent 'http://127.0.0.1:9090/api/v1/query?query=up%7Bjob%3D%22zeno-api%22%7D' \
+            | jq --exit-status '.data.result | any(.value[1] == "1")'
+          curl --fail --silent 'http://127.0.0.1:9090/api/v1/query?query=pg_up' \
+            | jq --exit-status '.data.result | any(.value[1] == "1")'
+          curl --fail --silent 'http://127.0.0.1:9090/api/v1/rules?type=alert' \
+            | jq --exit-status '[.data.groups[].rules[].name] | contains(["ZenoApiTargetDown", "ZenoApiHigh5xxRatio", "ZenoApiHighP95Latency", "ZenoPostgresExporterDown", "ZenoPostgresUnavailable", "ZenoPostgresConnectionsHigh", "ZenoPostgresDeadlocks", "ZenoObservabilityTargetDown", "ZenoExpiryWorkerMissing", "ZenoExpiryWorkerBatchFailing", "ZenoExpiryWorkerHeartbeatStale", "ZenoOutboxDueJobsBacklog", "ZenoOutboxOldestDueJob"])'
+      - name: Tear down stack
+        if: always()
+        run: docker compose down --remove-orphans
+
+  web:
+    name: API contract and web quality checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run api:client:check
+      - run: bun run api:lint
+      - run: bun run test
+        working-directory: apps/web
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun run build
+      # The standalone output is right there, so the export path is checked against
+      # it rather than asserted in a README. This catches the failure that matters
+      # most: instrumentation that loads, reports nothing, and looks fine.
+      - run: ./infra/observability/verify-web-trace-export.sh
+
+  api:
+    name: Rust API and reservation integrity
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: zeno
+          POSTGRES_PASSWORD: zeno_dev_only
+          POSTGRES_DB: zeno
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zeno -d zeno"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgres://zeno:zeno_dev_only@127.0.0.1:5432/zeno
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@39b0b3842c7e8bbf6904c0bfc3d9006fdd4dc4e0 # toolchain 1.88.0
+        with:
+          components: clippy, rustfmt
+      - run: cargo fmt --all -- --check
+      - run: cargo test --workspace
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      # Span export depends on a metadata token and a reachable collector, neither of
+      # which a unit test can provide. This stands both up and asserts the payload,
+      # so "spans reach Cloud Trace" is checked on every pull request rather than
+      # believed until someone opens a console.
+      - run: ./infra/observability/verify-trace-export.sh
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  infrastructure:
+    name: GCP infrastructure configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version_file: .opentofu-version
+          tofu_wrapper: false
+      - name: Check OpenTofu formatting
+        run: tofu -chdir=infra/gcp fmt -check -recursive
+      - name: Initialize without remote state
+        run: tofu -chdir=infra/gcp init -backend=false -lockfile=readonly -input=false
+      - name: Validate GCP infrastructure
+        run: tofu -chdir=infra/gcp validate -no-color
+      - name: Test GCP production release gates
+        run: tofu -chdir=infra/gcp test -no-color

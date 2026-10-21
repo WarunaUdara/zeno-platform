@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: zeno_loadtest
+      POSTGRES_PASSWORD: zeno_loadtest_only
+      POSTGRES_DB: zeno_loadtest
+    volumes:
+      - loadtest_postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    cpus: 1.0
+    mem_limit: 512m
+
+  api-migrate:
+    image: zeno-loadtest-api:local
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    command: ["migrate"]
+    environment:
+      DATABASE_URL: postgres://zeno_loadtest:zeno_loadtest_only@postgres:5432/zeno_loadtest
+      ZENO_ALLOW_REMOTE_DATABASE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  demo-seed:
+    image: zeno-loadtest-api:local
+    command: ["seed-demo"]
+    environment:
+      DATABASE_URL: postgres://zeno_loadtest:zeno_loadtest_only@127.0.0.1:5432/zeno_loadtest
+    network_mode: "service:postgres"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    image: zeno-loadtest-api:local
+    environment:
+      DATABASE_URL: postgres://zeno_loadtest:zeno_loadtest_only@postgres:5432/zeno_loadtest
+      ZENO_ALLOW_REMOTE_DATABASE: "true"
+      ZENO_API_BIND: 0.0.0.0:8080
+      DATABASE_MAX_CONNECTIONS: "20"
+    ports:
+      - "127.0.0.1:18080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
+      demo-seed:
+        condition: service_completed_successfully
+    cpus: 1.0
+    mem_limit: 512m
+
+volumes:
+  loadtest_postgres:

@@ -1,0 +1,86 @@
+name: Bug report
+description: Something behaved differently from what the documentation or the interface promised.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. If this is a security problem, stop and read
+        [SECURITY.md](https://github.com/WarunaUdara/zeno-platform/blob/main/SECURITY.md)
+        instead — do not open a public issue for a vulnerability.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe? Include the exact error text if there was one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+      description: What did you think would happen, and what led you to expect it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The smallest sequence that shows the problem. Note anything that makes it intermittent.
+      placeholder: |
+        1. Start the stack with `bun run stack:up`
+        2. Open http://127.0.0.1:3000/events
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      description: Which part of the system did you see this in?
+      multiple: true
+      options:
+        - Web app
+        - API
+        - Expiry worker
+        - Database schema or migration
+        - Infrastructure (OpenTofu)
+        - Observability (metrics, dashboards, alerts)
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Commit
+      description: Output of `git rev-parse HEAD`, or the deployed revision name.
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Local stack or deployed? If deployed, say which. Include what the
+        observability runbook calls the relevant signals: route, status, and any
+        `trace_id` from the logs.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for this problem
+          required: true
+        - label: I have not included any credential, key, token, or personal data belonging to someone else
+          required: true

@@ -1,0 +1,40 @@
+project_id  = "replace-with-your-gcp-project-id"
+region      = "asia-southeast1"
+environment = "demo"
+
+# First apply: leave workloads and public access disabled while foundations are created.
+deploy_workloads   = false
+publish_web        = false
+production_release = false
+public_domain      = ""
+
+# Set true to open the frontend on its Cloud Run run.app URL before a domain
+# exists. Not a production posture: no load balancer means no Cloud Armor.
+allow_public_default_uri = false
+
+# Create and verify a Cloud Monitoring notification channel, then add its full resource name here.
+monitoring_notification_channels = []
+
+# Use Auth endpoints from an isolated Neon project and branch; production_release requires both.
+neon_auth_base_url = ""
+neon_auth_jwks_url = ""
+
+# Add a unique 32+ character cookie secret to the generated Secret Manager secret out of band.
+# Pin its numeric version here only after validating the isolated Auth flow.
+web_auth_cookie_secret_version = ""
+
+# Use the same Neon branch's endpoint/region as the database. Add both storage
+# credentials to the generated Secret Manager secrets out of band and pin versions.
+neon_object_storage_endpoint_url = ""
+neon_object_storage_region = ""
+web_storage_access_key_secret_version = ""
+web_storage_secret_access_key_secret_version = ""
+
+# Keep in preview while observing request logs and testing shared-network traffic.
+public_reservation_rate_limit_count       = 10
+public_reservation_rate_limit_interval_sec = 60
+public_reservation_rate_limit_preview    = false
+
+# After images are pushed and the required Secret Manager versions exist, set immutable image digests.
+api_image = ""
+web_image = ""

@@ -1,0 +1,76 @@
+name: Feature request
+description: Propose a capability, a change in behaviour, or a reliability improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before proposing an implementation, it helps to read the architecture
+        decision records in
+        [docs/adr](https://github.com/WarunaUdara/zeno-platform/tree/main/docs/adr). Several
+        approaches were evaluated and deliberately declined, and the reasoning is
+        recorded there.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can you not do today, or what is harder or riskier than it should be? Describe the situation rather than the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would change
+      description: Your proposed approach, if you have one.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Organizer authoring
+        - Attendee booking
+        - Entry and check-in
+        - Reliability and correctness
+        - Observability
+        - Performance
+        - Infrastructure
+        - Developer experience
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else could solve this, and why is your proposal better? If you rejected an option, say why — that reasoning is often the most valuable part.
+    validations:
+      required: false
+
+  - type: textarea
+    id: cost
+    attributes:
+      label: What it costs
+      description: |
+        New dependencies, a migration, a new secret, a behaviour change for
+        existing users, or additional operational surface. Being explicit here
+        makes the proposal much easier to accept.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This does not implement payment. `orders.payment_status` is a documented seam, and only `not_required` is ever written.
+          required: false
+        - label: I am willing to work on this myself
+          required: false

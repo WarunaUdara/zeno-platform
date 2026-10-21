@@ -1,0 +1,6 @@
+extends:
+  - recommended
+
+# Project licensing remains undecided; do not infer a license from this API contract.
+rules:
+  info-license: off

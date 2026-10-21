@@ -1,0 +1,163 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zeno}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zeno_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-zeno}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  api-migrate:
+    image: zeno-api:local
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["migrate"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-zeno}:${POSTGRES_PASSWORD:-zeno_dev_only}@postgres:5432/${POSTGRES_DB:-zeno}
+      ZENO_ALLOW_REMOTE_DATABASE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  demo-seed:
+    image: zeno-api:local
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["seed-demo"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-zeno}:${POSTGRES_PASSWORD:-zeno_dev_only}@127.0.0.1:5432/${POSTGRES_DB:-zeno}
+    network_mode: "service:postgres"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    image: zeno-api:local
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-zeno}:${POSTGRES_PASSWORD:-zeno_dev_only}@postgres:5432/${POSTGRES_DB:-zeno}
+      ZENO_ALLOW_REMOTE_DATABASE: "true"
+      ZENO_API_BIND: 0.0.0.0:8080
+      # Local-only key so order confirmation works out of the box. Compose binds to
+      # loopback and this value is public in the repository; a deployed
+      # environment must supply its own from a secret manager.
+      ZENO_TICKET_CREDENTIAL_KEY: ${ZENO_TICKET_CREDENTIAL_KEY:-emVuby1sb2NhbC1kZXYta2V5LTMyLWJ5dGVzLWFiYyE}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
+      demo-seed:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    image: zeno-api:local
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["worker"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-zeno}:${POSTGRES_PASSWORD:-zeno_dev_only}@postgres:5432/${POSTGRES_DB:-zeno}
+      ZENO_ALLOW_REMOTE_DATABASE: "true"
+      ZENO_WORKER_POLL_INTERVAL_MS: ${ZENO_WORKER_POLL_INTERVAL_MS:-1000}
+      ZENO_WORKER_BATCH_SIZE: ${ZENO_WORKER_BATCH_SIZE:-100}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/zeno-api", "worker-health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+    command: ["--config.file="]
+    environment:
+      DATA_SOURCE_URI: postgres:5432/${POSTGRES_DB:-zeno}?sslmode=disable
+      DATA_SOURCE_USER: ${POSTGRES_USER:-zeno}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:-zeno_dev_only}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: zeno-web:local
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      ZENO_API_ORIGIN: http://api:8080
+      ZENO_GRAFANA_URL: ${ZENO_GRAFANA_URL:-http://localhost:3002/d/zeno-api}
+    ports:
+      - "127.0.0.1:${ZENO_WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/observability/rules.yml:/etc/prometheus/rules.yml:ro
+      - ./infra/observability/tests/zeno.rules.test.yml:/etc/prometheus/tests/zeno.rules.test.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres-exporter:
+        condition: service_started
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.2.2
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-zeno_local_only}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_METRICS_ENABLED: "true"
+    ports:
+      - "127.0.0.1:3002:3000"
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:

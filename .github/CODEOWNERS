@@ -1,0 +1,12 @@
+# Review routing, not enforcement.
+#
+# Everything is owned by the maintainer, so a pull request from anyone else
+# requests a review automatically instead of sitting unnoticed. Review is
+# enforced by branch protection on main, which requires an approving review and
+# a green CI run before a merge is possible.
+#
+# `require_code_owner_reviews` is deliberately left off in branch protection:
+# GitHub does not let an author approve their own pull request, so requiring a
+# code-owner review would make the maintainer unable to merge their own work.
+
+* @WarunaUdara

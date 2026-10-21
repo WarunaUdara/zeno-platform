@@ -1,0 +1,46 @@
+# gitleaks configuration for Zeno.
+#
+# Run it over history and over the working tree:
+#
+#   gitleaks git --config .gitleaks.toml --redact
+#   gitleaks dir --config .gitleaks.toml --redact .
+#
+# Everything this project runs needs credentials, and none of them belong in the
+# repository. Request paths, database URLs, session cookies, and storage keys are
+# injected at runtime: locally from .env, and in GCP from Secret Manager into the
+# Cloud Run revision environment. Nothing else should ever be committed.
+#
+# The allowlist below is deliberately short. Each entry is a value that grants
+# access to something reachable only from the machine running the stack, so
+# publishing it exposes nothing. Anything that would grant access to a shared or
+# remote system must fail the scan rather than be added here.
+title = "Zeno"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Local development defaults that grant no remote access"
+
+paths = [
+  # Cargo build output. Compiled artefacts contain arbitrary byte sequences that
+  # collide with high-entropy and key-shaped rules. This directory is gitignored
+  # and contributes no tracked files.
+  '''(^|/)target/''',
+]
+
+regexes = [
+  # Loopback-only Grafana admin password, shipped in compose.yaml as the default
+  # for `docker compose up`. The service is published on 127.0.0.1:3002 and holds
+  # only provisioned dashboards for local observability work. CI overrides it with
+  # a per-run value rather than relying on the default.
+  '''zeno_local_only''',
+  # Local Postgres role and password created by compose.yaml for development. The
+  # database lives in a named volume on the developer's machine; production uses a
+  # Neon role whose password is never committed.
+  '''zeno_dev_only''',
+  # Idempotency fixture in the API integration tests. It is a literal that never
+  # leaves the test process; the generic-api-key heuristic matches its shape only
+  # because of the `key` in the header name above it.
+  '''ticket-key-0123456789abc''',
+]
