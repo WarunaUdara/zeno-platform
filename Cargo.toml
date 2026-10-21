@@ -11,7 +11,7 @@ repository = "https://github.com/WarunaUdara/zeno-platform"
 
 [workspace.dependencies]
 axum = { version = "0.8", features = ["json"] }
-base64 = "0.22"
+base64 = "0.23"
 chrono = { version = "0.4", features = ["serde"] }
 jsonwebtoken = { version = "11.1", default-features = false, features = ["rust_crypto"] }
 prometheus = "0.14"
