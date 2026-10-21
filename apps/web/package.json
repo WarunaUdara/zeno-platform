@@ -21,7 +21,7 @@
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "@zeno/api-client": "workspace:*",
     "aws4fetch": "^1.0.20",
-    "next": "16.3.8",
+    "next": "16.4.2",
     "qrcode.react": "^4.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
