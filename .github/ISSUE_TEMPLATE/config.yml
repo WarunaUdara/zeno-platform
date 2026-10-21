@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/WarunaUdara/zeno-platform/security/advisories/new
+    about: Report privately. Do not open a public issue for a security problem.
+  - name: Question or design discussion
+    url: https://github.com/WarunaUdara/zeno-platform/discussions
+    about: For open-ended questions, or to discuss a design before writing code.
+  - name: Architecture decisions
+    url: https://github.com/WarunaUdara/zeno-platform/tree/main/docs/adr
+    about: Read what was evaluated and declined before proposing a structural change.

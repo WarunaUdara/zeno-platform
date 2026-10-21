@@ -1,0 +1,259 @@
+rule_files:
+  - /etc/prometheus/rules.yml
+
+evaluation_interval: 5s
+
+tests:
+  - name: API target down alert waits then fires
+    interval: 5s
+    input_series:
+      - series: up{job="zeno-api", instance="api:8080"}
+        values: "1 0 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 10s
+        alertname: ZenoApiTargetDown
+        exp_alerts: []
+      - eval_time: 25s
+        alertname: ZenoApiTargetDown
+        exp_alerts:
+          - exp_labels:
+              job: zeno-api
+              instance: api:8080
+              severity: critical
+            exp_annotations:
+              summary: Zeno API scrape target is down
+              description: Prometheus has failed to scrape the API for at least 15 seconds.
+
+  - name: database exporter and PostgreSQL health alerts
+    interval: 5s
+    input_series:
+      - series: up{job="postgres-exporter", instance="postgres-exporter:9187"}
+        values: "1 0 0 0 0 0 0 0"
+      - series: pg_up{job="postgres-exporter"}
+        values: "1 0 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 10s
+        alertname: ZenoPostgresExporterDown
+        exp_alerts: []
+      - eval_time: 25s
+        alertname: ZenoPostgresExporterDown
+        exp_alerts:
+          - exp_labels:
+              job: postgres-exporter
+              instance: postgres-exporter:9187
+              severity: critical
+            exp_annotations:
+              summary: Zeno PostgreSQL exporter is down
+              description: Prometheus cannot scrape PostgreSQL telemetry from postgres-exporter.
+      - eval_time: 10s
+        alertname: ZenoPostgresUnavailable
+        exp_alerts: []
+      - eval_time: 25s
+        alertname: ZenoPostgresUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: postgres-exporter
+              severity: critical
+            exp_annotations:
+              summary: Zeno PostgreSQL is unavailable to the exporter
+              description: The exporter is reachable but cannot collect metrics from PostgreSQL.
+
+  - name: sustained database connection pressure alerts
+    interval: 1m
+    input_series:
+      - series: pg_settings_max_connections{job="postgres-exporter"}
+        values: "100 100 100 100 100"
+      - series: pg_stat_activity_count{job="postgres-exporter", datname="zeno", state="active"}
+        values: "81 81 81 81 81"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: ZenoPostgresConnectionsHigh
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: ZenoPostgresConnectionsHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Zeno PostgreSQL connection usage is high
+              description: PostgreSQL is using more than 80% of its configured connection limit.
+
+  - name: database deadlocks and observability target health
+    interval: 1m
+    input_series:
+      - series: pg_stat_database_deadlocks{job="postgres-exporter", datname="zeno"}
+        values: "0 1 2 3 4 5"
+      - series: up{job="grafana", instance="grafana:3000"}
+        values: "1 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: ZenoPostgresDeadlocks
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: ZenoPostgresDeadlocks
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Zeno PostgreSQL detected deadlocks
+              description: PostgreSQL has recorded new deadlocks in the Zeno database during the last five minutes.
+      - eval_time: 1m
+        alertname: ZenoObservabilityTargetDown
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: ZenoObservabilityTargetDown
+        exp_alerts:
+          - exp_labels:
+              job: grafana
+              instance: grafana:3000
+              severity: warning
+            exp_annotations:
+              summary: Zeno observability target is down
+              description: Prometheus cannot scrape its own or Grafana's metrics endpoint.
+
+  - name: sustained server errors alert only fires with traffic
+    interval: 1m
+    input_series:
+      - series: zeno_http_requests_total{job="zeno-api", method="GET", route="/health/live", status_code="200"}
+        values: "0+120x8"
+      - series: zeno_http_requests_total{job="zeno-api", method="GET", route="/health/live", status_code="500"}
+        values: "0+12x8"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: ZenoApiHigh5xxRatio
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: ZenoApiHigh5xxRatio
+        exp_alerts:
+          - exp_labels:
+              job: zeno-api
+              severity: warning
+            exp_annotations:
+              summary: Zeno API is returning elevated server errors
+              description: More than 5% of responses are 5xx while the API serves over one request per second.
+
+  - name: high error ratio stays quiet without sustained traffic
+    interval: 1m
+    input_series:
+      - series: zeno_http_requests_total{job="zeno-api", method="GET", route="/health/live", status_code="200"}
+        values: "0+2x8"
+      - series: zeno_http_requests_total{job="zeno-api", method="GET", route="/health/live", status_code="500"}
+        values: "0+1x8"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: ZenoApiHigh5xxRatio
+        exp_alerts: []
+
+  - name: expiry worker reports missing, failed, and stale states
+    interval: 5s
+    input_series:
+      - series: zeno_worker_last_batch_timestamp_seconds{worker_name="reservation-expiry", instance_id="worker-1"}
+        values: "-100 -100 -100 -100 -100 -100 -100 -100"
+      - series: zeno_worker_last_batch_succeeded{worker_name="reservation-expiry", instance_id="worker-1"}
+        values: "1 1 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 10s
+        alertname: ZenoExpiryWorkerBatchFailing
+        exp_alerts: []
+      - eval_time: 25s
+        alertname: ZenoExpiryWorkerBatchFailing
+        exp_alerts:
+          - exp_labels:
+              worker_name: reservation-expiry
+              instance_id: worker-1
+              severity: warning
+            exp_annotations:
+              summary: Zeno reservation expiry worker batch is failing
+              description: The reservation expiry worker's latest recorded batch failed.
+      - eval_time: 25s
+        alertname: ZenoExpiryWorkerHeartbeatStale
+        exp_alerts:
+          - exp_labels:
+              worker_name: reservation-expiry
+              instance_id: worker-1
+              severity: critical
+            exp_annotations:
+              summary: Zeno reservation expiry worker heartbeat is stale
+              description: A reservation expiry worker instance has not completed a batch for over 15 seconds.
+
+  - name: missing expiry worker alerts only when no instance is present
+    interval: 5s
+    alert_rule_test:
+      - eval_time: 10s
+        alertname: ZenoExpiryWorkerMissing
+        exp_alerts: []
+      - eval_time: 20s
+        alertname: ZenoExpiryWorkerMissing
+        exp_alerts:
+          - exp_labels:
+              worker_name: reservation-expiry
+              severity: critical
+            exp_annotations:
+              summary: Zeno reservation expiry worker has no heartbeat
+              description: No reservation expiry worker instance has reported a completed batch.
+
+  - name: due outbox backlog and age alerts wait for sustained conditions
+    interval: 10s
+    input_series:
+      - series: zeno_outbox_due_jobs{job="zeno-api"}
+        values: "0 101 101 101 101 101 101 101 101"
+      - series: zeno_outbox_oldest_due_job_age_seconds{job="zeno-api"}
+        values: "0 20 31 31 31 31 31 31 31"
+    alert_rule_test:
+      - eval_time: 20s
+        alertname: ZenoOutboxDueJobsBacklog
+        exp_alerts: []
+      - eval_time: 80s
+        alertname: ZenoOutboxDueJobsBacklog
+        exp_alerts:
+          - exp_labels:
+              job: zeno-api
+              severity: warning
+            exp_annotations:
+              summary: Zeno reservation expiry queue is backlogged
+              description: More than 100 scheduled jobs are due and waiting to be processed.
+      - eval_time: 20s
+        alertname: ZenoOutboxOldestDueJob
+        exp_alerts: []
+      - eval_time: 50s
+        alertname: ZenoOutboxOldestDueJob
+        exp_alerts:
+          - exp_labels:
+              job: zeno-api
+              severity: critical
+            exp_annotations:
+              summary: Zeno outbox work is overdue
+              description: The oldest due outbox job has been waiting for over 30 seconds.
+
+  - name: a slow expiry batch alerts even though every batch still succeeds
+    interval: 10s
+    input_series:
+      # A worker can keep succeeding while getting steadily slower. The heartbeat,
+      # batch-result and backlog alerts all stay quiet in that case, so duration is
+      # the only signal that catches a worker falling behind before holds pile up.
+      # Slow from t=30s to t=180s, which is longer than the 2m hold time.
+      - series: zeno_worker_last_batch_succeeded{job="zeno-api", worker_name="reservation-expiry", instance_id="worker-1"}
+        values: "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1"
+      - series: zeno_worker_last_batch_duration_seconds{job="zeno-api", worker_name="reservation-expiry", instance_id="worker-1"}
+        values: "0.4 0.4 0.5 1.4 1.4 1.4 1.4 1.4 1.4 1.4 1.4 1.4 1.4 1.4 1.4 1.4 1.4 1.4 1.4 0.5 0.5 0.5 0.5"
+      - series: zeno_outbox_due_jobs{job="zeno-api"}
+        values: "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 100s
+        alertname: ZenoExpiryWorkerBatchSlow
+        exp_alerts: []
+      - eval_time: 170s
+        alertname: ZenoExpiryWorkerBatchSlow
+        exp_alerts:
+          - exp_labels:
+              job: zeno-api
+              worker_name: reservation-expiry
+              instance_id: worker-1
+              severity: warning
+            exp_annotations:
+              summary: Zeno reservation expiry worker batch is slow
+              description: A reservation expiry batch has taken more than a second for two minutes, so expired holds are being released later than intended.
+      # Recovery must clear the alert, otherwise one slow patch pages forever.
+      - eval_time: 250s
+        alertname: ZenoExpiryWorkerBatchSlow
+        exp_alerts: []

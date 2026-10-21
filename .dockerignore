@@ -1,0 +1,31 @@
+.git
+.neon
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+.next
+**/.next
+.turbo
+**/.turbo
+target
+**/target
+coverage
+**/coverage
+*.log
+.DS_Store
+
+# macOS tar and Finder fabricate AppleDouble sidecar files from extended
+# attributes. sqlx::migrate!() embeds the migrations directory at compile time and
+# rejects any file that is not NNNN_name.sql, so one stray ._0005_worker_heartbeats.sql
+# fails the image build with a confusing parse error rather than a missing file.
+._*
+**/._*
+
+# Credentials and nested environment files. The top-level patterns above only
+# match the repository root, and the web Dockerfile copies its whole app
+# directory, so a stray apps/web/.env would otherwise enter the image.
+**/.env
+**/.env.*
+gha-creds-*.json

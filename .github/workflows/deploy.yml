@@ -1,0 +1,178 @@
+name: Deploy
+
+# Production rollouts start from main. Every change reaches main through a
+# reviewed pull request, so this job does not re-decide what ships: it ships the
+# exact commit that was reviewed. A manual run is also allowed for a deliberate
+# re-deploy of the current main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only by default. The deploy job opts in to id-token, which is the only
+# additional capability it needs: that token is what Workload Identity Federation
+# exchanges for short-lived GCP credentials. There is no service-account key.
+permissions:
+  contents: read
+
+# Never run two rollouts at once, and never cancel one that is mid-flight: an
+# interrupted rollout can leave the migration job and the API on different
+# revisions.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  # Set these as repository variables. The job below is skipped until
+  # GCP_DEPLOY_ENABLED is "true", so a fork or a fresh clone never attempts a
+  # deployment with an empty configuration.
+  REGION: ${{ vars.GCP_REGION }}
+  REGISTRY: ${{ vars.GCP_ARTIFACT_REGISTRY }}
+  API_SERVICE: ${{ vars.GCP_API_SERVICE }}
+  WEB_SERVICE: ${{ vars.GCP_WEB_SERVICE }}
+  MIGRATE_JOB: ${{ vars.GCP_MIGRATE_JOB }}
+  EXPIRY_JOB: ${{ vars.GCP_EXPIRY_JOB }}
+
+jobs:
+  deploy:
+    name: Build, migrate, roll out
+    runs-on: ubuntu-latest
+    if: vars.GCP_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    timeout-minutes: 45
+    # Attaching the environment lets required reviewers or wait timers be added
+    # in repository settings without touching this file.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      # Actions are pinned to commit SHAs, not tags. A tag is mutable, so a
+      # compromised or retagged release could change what runs without any
+      # change to this file. The version comment keeps them reviewable.
+      - name: Check out the reviewed commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Exchange the GitHub OIDC token for GCP credentials
+        id: auth
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          # Keep the credential out of the workspace so it cannot enter a Docker
+          # build context or be picked up by a later step.
+          create_credentials_file: false
+          # The exchange succeeds without this, but the action then exposes no
+          # access token, so the registry login below receives an empty password
+          # and fails with "Password required" rather than anything that points
+          # back here.
+          token_format: access_token
+
+      # Fail early and unambiguously if the exchange produced nothing. This is a
+      # step condition rather than a shell test so the token is never
+      # interpolated into a script, which would write it to the job log.
+      - name: Require a token from the credential exchange
+        if: steps.auth.outputs.access_token == ''
+        run: |
+          echo "::error::Workload Identity Federation returned no access token."
+          echo "::error::Check that the auth step still sets token_format: access_token."
+          exit 1
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to Artifact Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Build and push the API image
+        id: api
+        run: |
+          set -euo pipefail
+          # Artifact Registry tags are immutable in this project, so a re-run of
+          # the same commit needs a distinct tag or the push is refused.
+          tag="${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}"
+          docker buildx build \
+            --push \
+            --file apps/api/Dockerfile \
+            --tag "${REGISTRY}/api:${tag}" \
+            --cache-from type=gha,scope=api \
+            --cache-to type=gha,scope=api,mode=max \
+            --metadata-file /tmp/api-metadata.json \
+            .
+          digest=$(python3 -c "import json;print(json.load(open('/tmp/api-metadata.json'))['containerimage.digest'])")
+          echo "ref=${REGISTRY}/api@${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push the web image
+        id: web
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}"
+          docker buildx build \
+            --push \
+            --file apps/web/Dockerfile \
+            --tag "${REGISTRY}/web:${tag}" \
+            --cache-from type=gha,scope=web \
+            --cache-to type=gha,scope=web,mode=max \
+            --metadata-file /tmp/web-metadata.json \
+            .
+          digest=$(python3 -c "import json;print(json.load(open('/tmp/web-metadata.json'))['containerimage.digest'])")
+          echo "ref=${REGISTRY}/web@${digest}" >> "$GITHUB_OUTPUT"
+
+      # Migrations run before the API moves, so the schema is always at least as
+      # new as the code that reads it. This ordering only holds because the
+      # migrations are additive; a destructive change would need expand/contract.
+      - name: Run database migrations
+        run: |
+          set -euo pipefail
+          gcloud run jobs update "$MIGRATE_JOB" \
+            --image="${{ steps.api.outputs.ref }}" \
+            --region="$REGION" \
+            --quiet
+          gcloud run jobs execute "$MIGRATE_JOB" --region="$REGION" --wait --quiet
+
+      - name: Roll out the API
+        run: |
+          set -euo pipefail
+          gcloud run services update "$API_SERVICE" \
+            --image="${{ steps.api.outputs.ref }}" \
+            --region="$REGION" \
+            --quiet
+
+      # The expiry worker shares the schema with the API, so it moves with it.
+      - name: Roll out the expiry worker
+        run: |
+          set -euo pipefail
+          gcloud run jobs update "$EXPIRY_JOB" \
+            --image="${{ steps.api.outputs.ref }}" \
+            --region="$REGION" \
+            --quiet
+
+      - name: Roll out the web tier
+        run: |
+          set -euo pipefail
+          gcloud run services update "$WEB_SERVICE" \
+            --image="${{ steps.web.outputs.ref }}" \
+            --region="$REGION" \
+            --quiet
+
+      # A rollout that returns success but serves errors is not a rollout. These
+      # paths exercise the web tier and, through it, the API.
+      - name: Smoke test the public surface
+        run: |
+          set -euo pipefail
+          url=$(gcloud run services describe "$WEB_SERVICE" \
+            --region="$REGION" --format='value(status.url)')
+          echo "Smoke testing $url"
+          failed=0
+          for path in / /events /auth/sign-in; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url$path" || echo 000)
+            printf '  %-16s %s\n' "$path" "$code"
+            [ "$code" = "200" ] || failed=1
+          done
+          [ "$failed" = "0" ]

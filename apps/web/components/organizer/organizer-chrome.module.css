@@ -1,0 +1,193 @@
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  background: var(--background);
+}
+
+.skipLink {
+  position: fixed;
+  z-index: 10;
+  top: 0.5rem;
+  left: 0.5rem;
+  transform: translateY(-160%);
+  padding: 0.65rem 0.9rem;
+  border-radius: 0.35rem;
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.skipLink:focus { transform: translateY(0); }
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0.75rem 0.75rem;
+  border-right: 1px solid var(--border);
+  background: #0b0c0d;
+}
+
+.brand {
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-inline: 0.65rem;
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 560;
+  letter-spacing: -0.035em;
+  text-decoration: none;
+}
+
+.brandMark {
+  width: 1.6rem;
+  height: 1.6rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid #35383c;
+  border-radius: 0.42rem;
+  color: var(--primary);
+  font-size: 1rem;
+}
+
+.brandPeriod { color: var(--primary); }
+
+.workspacePicker {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1.35rem;
+  padding: 0.8rem 0.65rem;
+  border-block: 1px solid var(--border);
+}
+
+.sectionLabel {
+  margin: 0;
+  color: #858a92;
+  font-size: 0.9375rem;
+  font-weight: 540;
+  letter-spacing: 0.09em;
+}
+
+.workspaceName {
+  overflow: hidden;
+  margin: 0;
+  color: var(--foreground);
+  font-size: 0.9375rem;
+  font-weight: 570;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role {
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+  text-transform: capitalize;
+}
+
+.workspaceForm { display: flex; align-items: center; gap: 0.35rem; }
+.workspaceForm select {
+  min-width: 0;
+  flex: 1;
+  height: 2.25rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 0.9rem;
+}
+.workspaceForm button {
+  min-height: 2.25rem;
+  padding-inline: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.workspaceLoadMore { width: fit-content; min-height: 2rem; padding: 0 0.4rem; border: 0; background: transparent; color: #b1b6bd; font-size: 0.875rem; text-align: left; cursor: pointer; }
+.workspaceLoadMore:hover { color: var(--foreground); }
+.workspaceLoadMore:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.workspaceLoadMore:disabled { cursor: wait; opacity: 0.7; }
+.workspaceLoadMessage { color: var(--muted-foreground); font-size: 0.8125rem; line-height: 1.4; }
+.workspaceForm select:focus-visible,
+.workspaceForm button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+.navigation { display: grid; align-content: start; gap: 0.25rem; padding-top: 1.15rem; }
+.navigation .sectionLabel { padding: 0.45rem 0.65rem 0.25rem; }
+
+.navLink {
+  min-height: 2.45rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0 0.65rem;
+  border-radius: 0.35rem;
+  color: #a3a8b0;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+.navLink:hover { background: #17191c; color: var(--foreground); }
+.navLinkActive { background: #1b1d20; color: var(--foreground); }
+.navLink:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+.sidebarFooter { display: grid; gap: 0.85rem; margin-top: auto; padding: 0.9rem 0.45rem 0.2rem; border-top: 1px solid var(--border); }
+.environment { display: flex; align-items: center; gap: 0.5rem; padding-inline: 0.2rem; color: var(--muted-foreground); font-size: 0.9375rem; }
+.environment > span { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--success); }
+.profile { min-width: 0; display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: 0.55rem; }
+.avatar { width: 1.9rem; height: 1.9rem; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 50%; color: var(--foreground); font-size: 0.9375rem; }
+.email { overflow: hidden; color: #c1c5cb; font-size: 0.9375rem; text-overflow: ellipsis; white-space: nowrap; }
+
+.mainColumn { min-width: 0; }
+.topbar {
+  min-height: 3.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 clamp(1rem, 3vw, 2.5rem);
+  border-bottom: 1px solid var(--border);
+}
+.breadcrumb { min-width: 0; display: flex; align-items: center; gap: 0.6rem; color: var(--muted-foreground); font-size: 0.9375rem; }
+.breadcrumb > span:first-child { overflow: hidden; max-width: 15rem; text-overflow: ellipsis; white-space: nowrap; }
+.breadcrumb strong { overflow: hidden; color: var(--foreground); font-weight: 540; text-overflow: ellipsis; white-space: nowrap; }
+.topbarPreview { min-height: 2.5rem; display: inline-flex; align-items: center; gap: 0.35rem; color: #b1b6be; font-size: 0.9375rem; text-decoration: none; }
+.topbarPreview:hover { color: var(--foreground); }
+.topbarPreview:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.content { width: min(100%, 88rem); margin: 0 auto; padding: clamp(1.5rem, 3vw, 2.5rem); }
+
+@media (max-width: 52rem) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; align-content: start; }
+  .sidebar { position: static; height: auto; padding: 0.7rem 1rem 0; border-right: 0; border-bottom: 1px solid var(--border); }
+  .brand { min-height: 2rem; padding-inline: 0; }
+  .brandMark { width: 1.5rem; height: 1.5rem; }
+  .workspacePicker { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.65rem; margin-top: 0.55rem; padding: 0.6rem 0; border-bottom: 0; }
+  .workspacePicker > .sectionLabel { display: none; }
+  .workspaceName { font-size: 0.9rem; }
+  .role { text-align: right; }
+  .workspaceForm { grid-column: 2; }
+  .workspaceLoadMore,
+  .workspaceLoadMessage { grid-column: 2 / -1; }
+  .navigation { display: flex; gap: 0.35rem; padding: 0 0 0.6rem; }
+  .navigation .sectionLabel { display: none; }
+  .navLink { min-height: 2.7rem; padding-inline: 0.65rem; font-size: 0.9rem; }
+  .sidebarFooter { position: absolute; top: 0.62rem; right: 1rem; display: flex; margin: 0; padding: 0; border: 0; }
+  .environment,
+  .avatar,
+  .email { display: none; }
+  .profile { display: block; }
+  .topbar { min-height: 3.2rem; padding-inline: 1rem; }
+  .mainColumn { min-height: 100vh; }
+  .content { padding: 1.4rem 1rem 2.5rem; }
+}
+
+@media (max-width: 24rem) {
+  .sidebar { padding-inline: 0.75rem; }
+  .sidebarFooter { right: 0.75rem; }
+  .topbarPreview { font-size: 0.875rem; }
+}
