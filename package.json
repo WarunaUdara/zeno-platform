@@ -34,7 +34,7 @@
     "api:check": "cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings"
   },
   "devDependencies": {
-    "@neon/config": "1.8.3",
+    "@neon/config": "1.9.4",
     "@neon/env": "1.5.0",
     "@redocly/cli": "2.71.0",
     "openapi-typescript": "7.13.0",
