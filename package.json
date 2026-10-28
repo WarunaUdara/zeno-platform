@@ -36,7 +36,7 @@
   "devDependencies": {
     "@neon/config": "1.8.3",
     "@neon/env": "1.5.0",
-    "@redocly/cli": "2.57.0",
+    "@redocly/cli": "2.71.0",
     "openapi-typescript": "7.13.0",
     "turbo": "2.11.7"
   }
