@@ -11,7 +11,7 @@ COPY packages/api-client packages/api-client
 RUN bun run --filter @zeno/web build
 RUN mkdir -p apps/web/public
 
-FROM node:22-bookworm-slim@sha256:a6385bc33f0f9d6a08482c87f52baee537a9184e2b47dea1ed97caac62f8960c AS runtime
+FROM node:26-bookworm-slim@sha256:bc0a2afd3b74ce12222fc8bab99271e66257f021078f5f4a5d687a77d280c1d9 AS runtime
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
